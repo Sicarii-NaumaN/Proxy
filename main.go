@@ -5,7 +5,6 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"os"
 	"proxy/proxy"
 )
 
@@ -26,36 +25,19 @@ func main() {
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 
-	getHistoryServe := &http.Server{
+	repeaterServ := &http.Server {
 		Addr: ":8081",
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
-				d, e := os.Create("repeater/last.txt")
-				if e != nil {
-					log.Fatal(e)
-				}
-				d.Write([]byte("kekekk"))
-				d.Close()
-			} else {
-				d, e := os.Create("repeater/last.txt")
-				if e != nil {
-					log.Fatal(e)
-				}
-				d.Write([]byte("lololo"))
-				d.Close()
-			}
-		}),
+		Handler: http.HandlerFunc(proxyServ.HandleRepeater),
 		// Disable HTTP/2.
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 
-
-	log.Println("Proxy server started on localhost:8080")
-	go getHistoryServe.ListenAndServe()
+	log.Println("Proxy server started on localhost:8080, repeater started 0n localhost:8081")
+	go repeaterServ.ListenAndServe()
 	if !isHttps {
 		log.Fatal(proxyServe.ListenAndServe())
 	} else {
-		log.Fatal(proxyServe.ListenAndServe())
+		log.Fatal(proxyServe.ListenAndServeTLS("cert.key", "ca.key"))
 	}
 
 

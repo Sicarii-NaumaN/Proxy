@@ -4,8 +4,10 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -37,7 +39,52 @@ func (p *Proxy) HandleFunc(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (p *Proxy) HandleRepeater(w http.ResponseWriter, r *http.Request) {
+	request, ok := r.URL.Query()["request"]
+	if !ok || len(request[0]) < 1 {
+		log.Println("Url Param 'request' is missing")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	repeaterFile, err := os.OpenFile("proxy/repeater.txt", os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	if err != nil {
+		log.Println("Invalid file provided")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	fmt.Println(request[0])
+	defer repeaterFile.Close()
+
+	bytes, err := os.ReadFile(request[0])
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	_, err = repeaterFile.Write(bytes)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func (p *Proxy) HandleHTTP(w http.ResponseWriter, r *http.Request) {
+	file, err := os.Create("proxy/history/last_request_" + r.Host + ".txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	err = r.Write(file)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// It is an error to set this field in an HTTP client request.
 	r.RequestURI = ""
 	for key := range r.Header {
@@ -45,17 +92,15 @@ func (p *Proxy) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 			r.Header.Del(key)
 		}
 	}
+
+	fmt.Println(r.URL.Path, r.RemoteAddr, r.Method, r.Form, r.GetBody, r.Body, r.Host)
 	//for key, values := range r.Header {
 	//	for _, value := range values {
 	//		w.Header().Set(key, value)
 	//		fmt.Println(key,": ", value)
 	//	}
 	//}
-	for key := range r.Header {
-		if key == "Proxy-Connection" {
-			r.Header.Del(key)
-		}
-	}
+
 	r.Close = true
 	resp, err := http.DefaultTransport.RoundTrip(r)
 	if err != nil {
@@ -64,12 +109,7 @@ func (p *Proxy) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	//err = resp.Write(w)
-	//if err != nil {
-	//	fmt.Print(err)
-	//}
-
-	for key, values := range r.Header {
+	for key, values := range resp.Header {
 		for _, value := range values {
 			w.Header().Set(key, value)
 			fmt.Println(key,": ", value)
