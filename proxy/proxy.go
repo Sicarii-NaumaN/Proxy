@@ -58,14 +58,6 @@ func (p *Proxy) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(r.URL.Path)
-
-	//for key, values := range r.Header {
-	//	for _, value := range values {
-	//		w.Header().Set(key, value)
-	//		fmt.Println(key,": ", value)
-	//	}
-	//}
 
 	r.Close = true
 	resp, err := http.DefaultTransport.RoundTrip(r)

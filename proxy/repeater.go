@@ -1,29 +1,25 @@
 package proxy
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
+	"proxy/utils"
 )
 
 type Repeater struct {
 	Proxy *Proxy
 }
 
-func NewRepeater(proxy *Proxy) *Repeater {
-	return &Repeater{Proxy: proxy}
-}
-
-
 func (rp *Repeater) HandleRepeater(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPut {
 		rp.HandleSendToRepeater(w, r)
-	} else {
+	} else if r.Method == http.MethodPost {
 		rp.HandleSendRequest(w, r)
+	} else {
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
 
@@ -62,24 +58,9 @@ func (rp *Repeater) HandleSendToRepeater(w http.ResponseWriter, r *http.Request)
 }
 
 func (rp *Repeater) HandleSendRequest(w http.ResponseWriter, r *http.Request) {
-	reqBytes, err := os.Open("proxy/repeater.txt")
+	req, err := utils.ParseRequest("proxy/repeater.txt")
 	if err != nil {
-		log.Println("Invalid repeater file")
 		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	var reader io.Reader = reqBytes
-	req, err := http.ReadRequest(bufio.NewReader(reader))
-	if err != nil {
-		log.Println("Repeater file broken")
-		return
-	}
-
-	req.URL, err = url.Parse("http://" + req.Host + req.URL.Path)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		return
 	}
 
 	resp, err := http.DefaultTransport.RoundTrip(req)
@@ -92,7 +73,6 @@ func (rp *Repeater) HandleSendRequest(w http.ResponseWriter, r *http.Request) {
 	for key, values := range resp.Header {
 		for _, value := range values {
 			w.Header().Set(key, value)
-			fmt.Println(key,": ", value)
 		}
 	}
 

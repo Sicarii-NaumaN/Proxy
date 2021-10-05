@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	param_miner "proxy/param-miner"
 
 	"proxy/proxy"
 )
@@ -22,7 +23,7 @@ func main() {
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 
-	repeaterServ := proxy.NewRepeater(&proxyServ)
+	repeaterServ := proxy.Repeater{}
 	repeaterServe := &http.Server {
 		Addr: ":8081",
 		Handler: http.HandlerFunc(repeaterServ.HandleRepeater),
@@ -30,7 +31,19 @@ func main() {
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 
-	log.Println("Proxy server started on localhost:8080, repeater started 0n localhost:8081")
+	paramMinerServ := param_miner.ParamMiner{}
+	paramMinerServe := &http.Server {
+		Addr: ":8082",
+		Handler: http.HandlerFunc(paramMinerServ.HandleParamMiner),
+		// Disable HTTP/2.
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
+	}
+
+	log.Println("Proxy server started on localhost: 8080. " +
+				"Repeater started on localhost: 8081. " +
+				"Param-miner started on localhost: 8082.")
+
+	go paramMinerServe.ListenAndServe()
 	go repeaterServe.ListenAndServe()
 	if !isHttps {
 		log.Fatal(proxyServe.ListenAndServe())
