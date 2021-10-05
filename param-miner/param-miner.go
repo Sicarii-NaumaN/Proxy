@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"proxy/utils"
+	"strings"
 	"time"
 )
 
@@ -86,9 +87,9 @@ func (pm *ParamMiner) guessGetParams() error {
 		b := new(bytes.Buffer)
 		io.Copy(b, resp.Body)
 
-		//if strings.Contains(b.String(), pm.Value) {
+		if strings.Contains(b.String(), pm.Value) {
 			fmt.Printf("status: %d ----- length: %d ----- param: { %s }\n", resp.StatusCode, resp.ContentLength, query)
-		//}
+		}
 		resp.Body.Close()
 	}
 	pm.bye()
