@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -67,6 +69,17 @@ func (p *Proxy) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
+	bodyBytes := new(bytes.Buffer)
+	if resp.ContentLength == -1 {
+		io.Copy(bodyBytes, resp.Body)
+
+		fmt.Println(string(bodyBytes.Bytes()), "<-----------------------")
+		resp.ContentLength = int64(len(bodyBytes.Bytes()))
+		resp.Header.Set("Content-Length", strconv.Itoa(len(bodyBytes.Bytes())))
+		resp.Header.Del("Transfer-Encoding")
+	}
+
+
 	for key, values := range resp.Header {
 		for _, value := range values {
 			w.Header().Set(key, value)
@@ -74,7 +87,7 @@ func (p *Proxy) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	io.Copy(w, resp.Body)
+	io.Copy(w, bodyBytes)
 }
 
 func (p *Proxy) HandleHTTPS(w http.ResponseWriter, r *http.Request) {

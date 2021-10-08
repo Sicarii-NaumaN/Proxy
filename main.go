@@ -31,7 +31,8 @@ func main() {
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 
-	paramMinerServ := param_miner.ParamMiner{}
+	// Init count of threads is 100
+	paramMinerServ := param_miner.NewParamMiner(100)
 	paramMinerServe := &http.Server {
 		Addr: ":8082",
 		Handler: http.HandlerFunc(paramMinerServ.HandleParamMiner),

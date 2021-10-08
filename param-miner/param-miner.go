@@ -11,11 +11,17 @@ import (
 	"os"
 	"proxy/utils"
 	"strings"
+	"sync"
 	"time"
 )
 
 type ParamMiner struct {
-	Value string
+	value   string
+	threads int
+}
+
+func NewParamMiner(threads int) *ParamMiner {
+	return &ParamMiner{threads: threads}
 }
 
 func init() {
@@ -64,7 +70,7 @@ func (pm *ParamMiner) guessGetParams() error {
 
 	exampleValue := make([]rune, 10)
 	for i := range exampleValue {
-	exampleValue[i] = letterRunes[rand.Intn(len(letterRunes))]
+		exampleValue[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 
 	repeaterRequest, err := utils.ParseRequest("proxy/repeater.txt")
@@ -73,25 +79,8 @@ func (pm *ParamMiner) guessGetParams() error {
 		return err
 	}
 
-	pm.Value = string(exampleValue)
-	for _, query := range queries {
-		req, err := http.NewRequest(http.MethodGet, repeaterRequest.URL.String() + "?" + query + pm.Value, nil)
-		if err != nil {
-			log.Println(err)
-		}
-		resp, err := http.DefaultTransport.RoundTrip(req)
-		if err != nil {
-			log.Println(err)
-		}
-
-		b := new(bytes.Buffer)
-		io.Copy(b, resp.Body)
-
-		if strings.Contains(b.String(), pm.Value) {
-			fmt.Printf("status: %d ----- length: %d ----- param: { %s }\n", resp.StatusCode, resp.ContentLength, query)
-		}
-		resp.Body.Close()
-	}
+	pm.value = string(exampleValue)
+	pm.workers(queries, len(queries), repeaterRequest)
 	pm.bye()
 	return err
 }
@@ -102,4 +91,42 @@ func (pm *ParamMiner) hello() {
 
 func (pm *ParamMiner) bye() {
 	fmt.Println("\n-----------------PARAM-MINER PROCESSING FINISHED-----------------")
+}
+
+func (pm *ParamMiner)workers(params []string, paramsLength int, repeaterRequest *http.Request) {
+	tasksPerThread := paramsLength/pm.threads
+	wg := new(sync.WaitGroup)
+
+	for i := 0; i < pm.threads; i++ {
+		wg.Add(1)
+		var tasks []string
+		if i != pm.threads - 1 {
+			tasks = params[i*tasksPerThread : (i+1)*tasksPerThread]
+		} else {
+			tasks = params[i*tasksPerThread:]
+		}
+		go func(tasks []string) {
+			defer wg.Done()
+
+			for _, query := range tasks {
+				req, err := http.NewRequest(http.MethodGet, repeaterRequest.URL.String()+"?"+query+pm.value, nil)
+				if err != nil {
+					log.Println(err)
+				}
+				resp, err := http.DefaultTransport.RoundTrip(req)
+				if err != nil {
+					log.Println(err)
+				}
+
+				b := new(bytes.Buffer)
+				io.Copy(b, resp.Body)
+
+				if strings.Contains(b.String(), pm.value) {
+					fmt.Printf("status: %d ----- length: %d ----- param: { %s }\n", resp.StatusCode, resp.ContentLength, query)
+				}
+				resp.Body.Close()
+			}
+		}(tasks)
+	}
+	wg.Wait()
 }
