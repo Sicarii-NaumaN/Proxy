@@ -70,9 +70,8 @@ func (p *Proxy) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	bodyBytes := new(bytes.Buffer)
+	io.Copy(bodyBytes, resp.Body)
 	if resp.ContentLength == -1 {
-		io.Copy(bodyBytes, resp.Body)
-
 		fmt.Println(string(bodyBytes.Bytes()), "<-----------------------")
 		resp.ContentLength = int64(len(bodyBytes.Bytes()))
 		resp.Header.Set("Content-Length", strconv.Itoa(len(bodyBytes.Bytes())))
@@ -86,6 +85,7 @@ func (p *Proxy) HandleHTTP(w http.ResponseWriter, r *http.Request) {
 			//fmt.Println(key,": ", value)
 		}
 	}
+
 
 	io.Copy(w, bodyBytes)
 }
