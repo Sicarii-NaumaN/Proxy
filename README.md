@@ -1,6 +1,12 @@
 # Burp
 
 ## How to build and run 
+    1. Using Docker:
+
+    docker build -t proxy .
+    docker run -p 8080-8082:8080-8082 proxy
+
+    2. Using local:
 
     $ go mod tidy 
     $ go run . |--https|
@@ -40,7 +46,7 @@ In directory proxy/history you can see history of sent requests
     Accept: */*
 
 2) Repeater
- 
+
 You can send any request to repeater from history via query parameter:
 
     curl -i -X PUT http://127.0.0.1:8081\?request=proxy/history/last_request_mail.ru.txt
@@ -56,6 +62,7 @@ To repeat request from repeater run:
 
     curl -i -X POST http://127.0.0.1:8081
 
+Request pattern: ?request=proxy/history/last_request_<b>/*domain+path*/</b>.txt
 3) Param-miner
 
 Param-miner takes target from request in repeater, to run it:
